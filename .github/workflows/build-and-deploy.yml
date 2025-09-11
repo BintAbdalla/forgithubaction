@@ -3,31 +3,27 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - main  # Déclenche le workflow à chaque push sur main
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Récupérer le code du repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Installer Node.js pour build Vite
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22'
 
-      # 3️⃣ Installer les dépendances et builder l'application Vite
       - name: Install dependencies
         run: npm install
 
       - name: Build Vite project
         run: npm run build
 
-      # 4️⃣ Log in sur Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -35,11 +31,8 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           registry: docker.io
 
-
-      # 5️⃣ Build l'image Docker
       - name: Build Docker image
         run: docker build -t bintabdalla/forgithubaction:latest .
 
-      # 6️⃣ Push l'image Docker sur Docker Hub
       - name: Push Docker image
         run: docker push bintabdalla/forgithubaction:latest
