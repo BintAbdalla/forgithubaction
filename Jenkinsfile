@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs 'NodeJS' // Assure-toi que NodeJS 22 est configuré dans Jenkins Global Tool Configuration
-    }
-
     environment {
         DOCKER_IMAGE = 'bintabdallah/forgithubaction:latest'
         DOCKER_REGISTRY = 'docker.io'
