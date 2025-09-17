@@ -13,13 +13,7 @@ pipeline {
             }
         }
 
-        stage('Install Node.js') {
-            steps {
-                // Installe Node.js via nvm ou utilise Node préinstallé sur l'agent
-                sh 'node -v || curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && sudo apt-get install -y nodejs'
-                sh 'npm -v'
-            }
-        }
+        
 
         stage('Install Dependencies') {
             steps {
