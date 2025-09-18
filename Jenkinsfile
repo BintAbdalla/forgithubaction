@@ -8,7 +8,7 @@ pipeline {
     environment {
         DOCKER_HUB_USER = "bintabdallah"
         IMAGE_NAME = "forgithubaction"
-        DEPLOY_PORT = "8080"   // Port par défaut
+        DEPLOY_PORT = "8080"   
     }
 
     stages {
@@ -55,7 +55,7 @@ pipeline {
                 script {
                     echo '🚀 Déploiement en cours...'
 
-                    // Arrêter et supprimer le container existant s'il existe
+                 
                     sh """
                         if [ \$(docker ps -aq -f name=${IMAGE_NAME}) ]; then
                             echo "Arrêt du container existant..."
@@ -65,10 +65,10 @@ pipeline {
                         fi
                     """
 
-                    // Détection intelligente du port disponible
+                  
                     def deployPort = env.DEPLOY_PORT
                     
-                    // Vérifier si le port 8080 est occupé
+                    
                     def port8080Used = sh(
                         script: "lsof -i:8080 > /dev/null 2>&1",
                         returnStatus: true
@@ -77,8 +77,7 @@ pipeline {
                     if (port8080Used) {
                         echo "⚠️ Port 8080 occupé, tentative sur le port 8081"
                         
-                        // Vérifier si le port 8081 est aussi occupé
-                        def port8081Used = sh(
+                       def port8081Used = sh(
                             script: "lsof -i:8081 > /dev/null 2>&1",
                             returnStatus: true
                         ) == 0
@@ -93,7 +92,7 @@ pipeline {
 
                     echo "📍 Déploiement sur le port ${deployPort}"
 
-                    // Lancer le container avec le port déterminé
+                  
                     sh """
                         echo "Lancement du container sur le port ${deployPort}..."
                         docker run -d -p ${deployPort}:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
@@ -120,7 +119,7 @@ pipeline {
                     echo "✅ Déploiement terminé avec succès sur le port ${deployPort}"
                     echo "🌐 Application accessible sur : http://localhost:${deployPort}"
                     
-                    // Test de connectivité (optionnel)
+                 
                     sh """
                         echo "🔍 Test de connectivité..."
                         sleep 3
