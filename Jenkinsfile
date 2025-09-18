@@ -55,27 +55,81 @@ pipeline {
                 script {
                     echo '🚀 Déploiement en cours...'
 
+                    // Arrêter et supprimer le container existant s'il existe
                     sh """
-                    # Arrêter et supprimer le container existant
-                    if [ \$(docker ps -aq -f name=${IMAGE_NAME}) ]; then
-                        docker stop ${IMAGE_NAME} || true
-                        docker rm ${IMAGE_NAME} || true
-                    fi
-
-                    # Détection d'un port libre
-                    if lsof -i:${DEPLOY_PORT} ; then
-                        echo "Port ${DEPLOY_PORT} occupé, utilisation de 8081"
-                        DEPLOY_PORT=8081
-                    fi
-
-                    # Lancer le container
-                    docker run -d -p ${DEPLOY_PORT}:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
-
-                    # Afficher les logs récents pour vérification
-                    docker logs ${IMAGE_NAME} --tail 20
+                        if [ \$(docker ps -aq -f name=${IMAGE_NAME}) ]; then
+                            echo "Arrêt du container existant..."
+                            docker stop ${IMAGE_NAME} || true
+                            docker rm ${IMAGE_NAME} || true
+                            echo "Container existant supprimé"
+                        fi
                     """
 
-                    echo "✅ Déploiement terminé sur le port ${DEPLOY_PORT}"
+                    // Détection intelligente du port disponible
+                    def deployPort = env.DEPLOY_PORT
+                    
+                    // Vérifier si le port 8080 est occupé
+                    def port8080Used = sh(
+                        script: "lsof -i:8080 > /dev/null 2>&1",
+                        returnStatus: true
+                    ) == 0
+                    
+                    if (port8080Used) {
+                        echo "⚠️ Port 8080 occupé, tentative sur le port 8081"
+                        
+                        // Vérifier si le port 8081 est aussi occupé
+                        def port8081Used = sh(
+                            script: "lsof -i:8081 > /dev/null 2>&1",
+                            returnStatus: true
+                        ) == 0
+                        
+                        if (port8081Used) {
+                            echo "⚠️ Port 8081 aussi occupé, utilisation du port 8082"
+                            deployPort = "8082"
+                        } else {
+                            deployPort = "8081"
+                        }
+                    }
+
+                    echo "📍 Déploiement sur le port ${deployPort}"
+
+                    // Lancer le container avec le port déterminé
+                    sh """
+                        echo "Lancement du container sur le port ${deployPort}..."
+                        docker run -d -p ${deployPort}:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
+                        
+                        # Attendre que le container démarre complètement
+                        echo "Attente du démarrage du container..."
+                        sleep 5
+                        
+                        # Vérifier que le container fonctionne correctement
+                        if docker ps | grep ${IMAGE_NAME} > /dev/null; then
+                            echo "✅ Container démarré avec succès"
+                            echo "📋 Informations du container :"
+                            docker ps | grep ${IMAGE_NAME}
+                            echo "📄 Logs récents :"
+                            docker logs ${IMAGE_NAME} --tail 10
+                        else
+                            echo "❌ Erreur lors du démarrage du container"
+                            echo "📄 Logs complets pour diagnostic :"
+                            docker logs ${IMAGE_NAME} 2>/dev/null || echo "Aucun log disponible"
+                            exit 1
+                        fi
+                    """
+
+                    echo "✅ Déploiement terminé avec succès sur le port ${deployPort}"
+                    echo "🌐 Application accessible sur : http://localhost:${deployPort}"
+                    
+                    // Test de connectivité (optionnel)
+                    sh """
+                        echo "🔍 Test de connectivité..."
+                        sleep 3
+                        if curl -f http://localhost:${deployPort} > /dev/null 2>&1; then
+                            echo "✅ Application répond correctement"
+                        else
+                            echo "⚠️ L'application ne répond pas encore (peut nécessiter plus de temps)"
+                        fi
+                    """
                 }
             }
         }
@@ -83,13 +137,27 @@ pipeline {
 
     post {
         always {
+            echo "🧹 Nettoyage de l'espace de travail..."
             cleanWs()
         }
         success {
-            echo '✅ Pipeline réussi !'
+            echo '✅ Pipeline exécuté avec succès !'
+            echo '🎉 L\'application a été déployée correctement'
         }
         failure {
             echo '❌ Pipeline échoué !'
+            script {
+                // Nettoyer les containers en cas d'échec pour éviter les conflits futurs
+                echo "🧹 Nettoyage des containers en cas d'échec..."
+                sh """
+                    if [ \$(docker ps -aq -f name=${IMAGE_NAME}) ]; then
+                        echo "Suppression du container défaillant..."
+                        docker stop ${IMAGE_NAME} || true
+                        docker rm ${IMAGE_NAME} || true
+                        echo "Nettoyage terminé"
+                    fi
+                """
+            }
         }
     }
 }
