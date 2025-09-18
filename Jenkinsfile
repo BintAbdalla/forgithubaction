@@ -2,20 +2,21 @@ pipeline {
     agent any
 
     tools {
-        nodejs "node"  
+        nodejs "node"
     }
 
     environment {
-        DOCKER_HUB_USER = "bintabdallah"   // ton nom Docker Hub
-        IMAGE_NAME = "forgithubaction"     // le nom du repo Docker Hub
+        DOCKER_HUB_USER = "bintabdallah"
+        IMAGE_NAME = "forgithubaction"
+        DEPLOY_PORT = "8080"   // Port local pour Docker (évite conflits)
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main', 
-                     url: 'https://github.com/BintAbdalla/forgithubaction.git',
-                     credentialsId: 'github-credentials'
+                    url: 'https://github.com/BintAbdalla/forgithubaction.git',
+                    credentialsId: 'github-credentials'
             }
         }
 
@@ -41,7 +42,6 @@ pipeline {
             steps {
                 script {
                     def image = docker.build("${DOCKER_HUB_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER}")
-
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {
                         image.push()
                         image.push("latest")
@@ -55,11 +55,16 @@ pipeline {
                 script {
                     echo '🚀 Déploiement en cours...'
                     sh """
-                    docker stop ${IMAGE_NAME} || true
-                    docker rm ${IMAGE_NAME} || true
-                    docker run -d -p 80:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
+                    # Arrêter et supprimer le container s'il existe
+                    if [ \$(docker ps -aq -f name=${IMAGE_NAME}) ]; then
+                        docker stop ${IMAGE_NAME} || true
+                        docker rm ${IMAGE_NAME} || true
+                    fi
+
+                    # Lancer le container sur le port défini
+                    docker run -d -p ${DEPLOY_PORT}:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
                     """
-                    echo "✅ Déploiement terminé avec succès"
+                    echo "✅ Déploiement terminé sur le port ${DEPLOY_PORT}"
                 }
             }
         }
