@@ -2,51 +2,82 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'node' // Assure-toi que NodeJS 22 est configuré dans Jenkins Global Tool Configuration
+        nodejs "node"  
     }
 
     environment {
-        DOCKER_IMAGE = 'bintabdallah/forgithubaction:latest'
-        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_HUB_USER = "bintabdallah"   // 🔹 ton nom Docker Hub
+        IMAGE_NAME = "bintabdallah/forgithubaction"                // 🔹 le nom de ton image
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/BintAbdalla/forgithubaction.git'
+                git branch: 'main', 
+                     url: 'https://github.com/BintAbdalla/forgithubaction.git',
+                     credentialsId: 'github-credentials'
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install dependencies') {
             steps {
                 sh 'npm install'
             }
         }
 
-        stage('Build Project') {
+        stage('Build') {
             steps {
                 sh 'npm run build'
             }
         }
 
+        stage('Test') {
+            steps {
+                // Evite que Jest reste bloqué
+                sh 'CI=true npm test -- --watchAll=false'
+            }
+        }
+
         stage('Docker Build & Push') {
             steps {
-                // Connecte-toi à Docker Hub (mettre les credentials dans Jenkins Credentials)
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh "docker build -t $DOCKER_IMAGE ."
-                    sh "docker push $DOCKER_IMAGE"
+                script {
+                    def image = docker.build("${DOCKER_HUB_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER}")
+
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {
+                        image.push()
+                        image.push("latest")
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    echo '🚀 Déploiement en cours...'
+
+                    // 🔹 Exemple de déploiement local
+                    sh """
+                    docker stop ${IMAGE_NAME} || true
+                    docker rm ${IMAGE_NAME} || true
+                    docker run -d -p 80:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
+                    """
+
+                    echo "✅ Déploiement terminé avec succès"
                 }
             }
         }
     }
 
     post {
+        always {
+            cleanWs()
+        }
         success {
-            echo 'Build et déploiement Docker réussis ✅'
+            echo '✅ Pipeline réussi !'
         }
         failure {
-            echo 'Le pipeline a échoué ❌'
+            echo '❌ Pipeline échoué !'
         }
     }
 }
