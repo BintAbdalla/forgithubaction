@@ -6,8 +6,8 @@ pipeline {
     }
 
     environment {
-        DOCKER_HUB_USER = "bintabdallah"   // 🔹 ton nom Docker Hub
-        IMAGE_NAME = "bintabdallah/forgithubaction"                // 🔹 le nom de ton image
+        DOCKER_HUB_USER = "bintabdallah"   // ton nom Docker Hub
+        IMAGE_NAME = "forgithubaction"     // le nom du repo Docker Hub
     }
 
     stages {
@@ -21,7 +21,6 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-            //gkhgh
                 sh 'npm install'
             }
         }
@@ -55,14 +54,11 @@ pipeline {
             steps {
                 script {
                     echo '🚀 Déploiement en cours...'
-
-                    // 🔹 Exemple de déploiement local
                     sh """
                     docker stop ${IMAGE_NAME} || true
                     docker rm ${IMAGE_NAME} || true
                     docker run -d -p 80:80 --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest
                     """
-
                     echo "✅ Déploiement terminé avec succès"
                 }
             }
