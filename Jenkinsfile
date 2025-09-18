@@ -21,6 +21,7 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
+            //gkhgh
                 sh 'npm install'
             }
         }
